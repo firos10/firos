@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Delivery Run Sheet</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      background: #f7f7f7;
+    }
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      background: white;
+      padding: 20px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      border-radius: 8px;
+    }
+    .header {
+      text-align: center;
+    }
+    h1 {
+      margin-bottom: 0;
+      color: #A52A2A; /* Brown */
+      font-weight: bold;
+    }
+    h2 {
+      margin-top: 5px;
+      font-weight: bold;
+      color: #000000; /* Black */
+    }
+    .header-row {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 10px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 15px;
+      background: white;
+    }
+    th, td {
+      border: 1px solid #000;
+      padding: 6px 10px;
+      text-align: left;
+    }
+    input {
+      padding: 6px;
+      margin: 4px;
+    }
+    input#pcs { width: 60px; }
+    input#awb { width: 120px; }
+    input#consigneeAddress { width: 300px; }
+    button {
+      padding: 8px 12px;
+      margin: 8px 4px;
+      background-color: green;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+    .download-buttons {
+      text-align: right;
+      margin-top: 15px;
+    }
+  </style>
+</head>
+<body onload="setTodayDate();">
+  <div class="container">
+    <div class="header">
+      <h1>Trackon Courier Pvt Ltd</h1>
+      <h2>Delivery Run Sheet</h2>
+    </div>
+
+    <div class="header-row">
+      <input type="text" id="area" placeholder="Area" style="text-transform:uppercase; font-weight:bold;" oninput="this.value = this.value.toUpperCase()" onkeydown="focusNext(event, 'runDate')">
+      <input type="date" id="runDate" style="font-weight:bold;" onkeydown="focusNext(event, 'awb')">
+    </div>
+
+    <div class="form-row">
+      <input type="text" id="awb" placeholder="AWB No" onkeydown="focusNext(event, 'pcs')">
+      <input type="number" id="pcs" placeholder="PCS" min="1" onkeydown="focusNext(event, 'consigneeAddress')">
+      <input type="text" id="consigneeAddress" placeholder="Consignee name and address" onkeydown="handleConsigneeEnter(event)">
+    </div>
+
+    <table id="runSheetTable">
+      <thead>
+        <tr>
+          <th>SlNo</th>
+          <th>AWB No</th>
+          <th>PCS</th>
+          <th>Consignee name and address</th>
+          <th>Seal / Sign</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+
+    <div class="download-buttons">
+      <button onclick="exportExcel()">Download Excel</button>
+      <button onclick="exportPDF()">Print PDF</button>
+      <button onclick="resetAll()">Reset</button>
+    </div>
+  </div>
+
+  <script>
+    let slno = 1;
+
+    function setTodayDate() {
+      const today = new Date().toISOString().split('T')[0];
+      document.getElementById("runDate").value = today;
+    }
+
+    function focusNext(event, nextId) {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        document.getElementById(nextId).focus();
+      }
+    }
+
+    function handleConsigneeEnter(event) {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        addRow();
+      }
+    }
+
+    function addRow() {
+      const awb = document.getElementById("awb").value.trim();
+      const pcs = document.getElementById("pcs").value.trim();
+      const consigneeAddress = document.getElementById("consigneeAddress").value.trim();
+
+      if (!awb || !pcs || !consigneeAddress) {
+        alert("Fill all fields");
+        return;
+      }
+
+      const table = document.getElementById("runSheetTable").getElementsByTagName('tbody')[0];
+      const newRow = table.insertRow();
+      newRow.insertCell(0).innerText = slno++;
+      newRow.insertCell(1).innerText = awb;
+      newRow.insertCell(2).innerText = pcs.toString().padStart(2, '0');
+      newRow.insertCell(3).innerText = consigneeAddress;
+      newRow.insertCell(4).innerText = "";
+
+      document.getElementById("awb").value = "";
+      document.getElementById("pcs").value = "";
+      document.getElementById("consigneeAddress").value = "";
+      document.getElementById("awb").focus();
+      document.getElementById("awb").scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+
+    function exportExcel() {
+      const table = document.getElementById("runSheetTable");
+      const area = document.getElementById("area").value.trim();
+      const date = document.getElementById("runDate").value.trim();
+
+      if (!area || !date) {
+        alert("Please fill Area and Date before exporting.");
+        return;
+      }
+
+      const wb = XLSX.utils.book_new();
+      const ws_data = [];
+
+      ws_data.push(["Trackon Courier Pvt Ltd"]);
+      ws_data.push(["Delivery Run Sheet"]);
+      ws_data.push(["Area:", area, "", "Date:", date]);
+      ws_data.push([]);
+
+      const headers = [];
+      const ths = table.querySelectorAll("thead th");
+      ths.forEach(th => headers.push(th.innerText));
+      ws_data.push(headers);
+
+      const rows = table.querySelectorAll("tbody tr");
+      rows.forEach(row => {
+        const rowData = [];
+        const cells = row.querySelectorAll("td");
+        cells.forEach(cell => rowData.push(cell.innerText));
+        ws_data.push(rowData);
+      });
+
+      const ws = XLSX.utils.aoa_to_sheet(ws_data);
+      XLSX.utils.book_append_sheet(wb, ws, "Delivery Run Sheet");
+
+      const filename = `Delivery_Run_Sheet_${area}_${date}.xlsx`;
+      XLSX.writeFile(wb, filename);
+    }
+
+    async function exportPDF() {
+      const area = document.getElementById("area").value.trim();
+      const date = document.getElementById("runDate").value.trim();
+      if (!area || !date) {
+        alert("Please fill Area and Date before exporting.");
+        return;
+      }
+
+      const [yyyy, mm, dd] = date.split("-");
+      const formattedDate = `${dd}/${mm}/${yyyy}`;
+
+      const { jsPDF } = window.jspdf;
+      const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+      const table = document.getElementById("runSheetTable");
+      const rows = table.rows;
+      let y = 35;
+
+      pdf.rect(5, 5, 200, 287);
+
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(16);
+      pdf.setTextColor(165, 42, 42);
+      pdf.text("Trackon Courier Pvt Ltd", 105, 12, null, null, "center");
+
+      pdf.setFontSize(14);
+      pdf.setTextColor(0, 0, 0);
+      pdf.text("Delivery Run Sheet", 105, 20, null, null, "center");
+
+      pdf.setFontSize(11);
+      pdf.text("Area: " + area, 10, 28);
+      pdf.text("Date: " + formattedDate, 150, 28);
+
+      const columnWidths = [12, 38, 14, 86, 40];
+      const rowHeight = 22;
+      const headers = ["SlNo", "AWB No", "PCS", "Consignee name and address", "Seal / Sign"];
+
+      pdf.setFontSize(10);
+      let x = 10;
+      for (let i = 0; i < headers.length; i++) {
+        pdf.rect(x, y, columnWidths[i], 8);
+        pdf.text(headers[i], x + 1.5, y + 5.5);
+        x += columnWidths[i];
+      }
+
+      y += 8;
+
+      for (let i = 1; i < rows.length; i++) {
+        const cells = rows[i].cells;
+        x = 10;
+        for (let j = 0; j < columnWidths.length; j++) {
+          pdf.rect(x, y, columnWidths[j], rowHeight);
+          pdf.text(cells[j].innerText || "", x + 1.5, y + 6);
+          x += columnWidths[j];
+        }
+        y += rowHeight;
+      }
+
+      window.open(pdf.output('bloburl'), '_blank');
+    }
+
+    function resetAll() {
+      document.getElementById("runSheetTable").getElementsByTagName('tbody')[0].innerHTML = "";
+      slno = 1;
+      document.getElementById("awb").value = "";
+      document.getElementById("pcs").value = "";
+      document.getElementById("consigneeAddress").value = "";
+      document.getElementById("area").value = "";
+      document.getElementById("runDate").value = "";
+      document.getElementById("awb").focus();
+      setTodayDate();
+    }
+  </script>
+</body>
+</html>
